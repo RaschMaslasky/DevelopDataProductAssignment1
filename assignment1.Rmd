@@ -1,0 +1,147 @@
+---
+title: "London's Crime Monitoring"
+author: "mirzarashid abbasov | developing data products course | coursera | 06.JAN.2018"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+suppressMessages(library(leaflet))
+suppressMessages(library(dplyr))
+suppressMessages(library(sqldf))
+suppressMessages(library(plotly))
+suppressMessages(library(shiny))
+```
+
+#### Introduction
+The following map represents London's crime statictics in 2016 year. Please click variables and analyze information.
+```{r shinyApp, echo = FALSE}
+# clean up workspance
+rm(list = ls())
+
+# setup work directory
+setwd("/Users/mirzarashid.abbasov/repos/DevelopinDataProducts/week2/CrimeMonitor")
+
+# load dataset
+df <- read.csv("./data/df.csv")
+
+# create lookups
+crime.type              <- append(levels(df$Crime.type), 'all')
+last.outcome.category   <- append(levels(df$Last.outcome.category), 'all')
+month                   <- append(levels(df$Month), 'all')
+
+dfSummarised <- sqldf("select 
+                        t.month, 
+                        t.'Crime.type', 
+                        count(t.'Crime.type') 
+                        from df t
+                        group by t.month, t.'Crime.type'")
+colnames(dfSummarised) <- c("month","crimeType","crimeTypeCount")  
+
+# user interface
+ui <- fluidPage(
+        # titlePanel("London's crime monitoring"),
+        sidebarLayout(
+                sidebarPanel(
+                        selectInput("month", label="Period", choices = month, selected = 1),
+                        selectInput("crime.type", "Crime type", choices = crime.type, selected = 1),
+                        checkboxInput("cluster", "Cluster option"),
+                        checkboxInput("legend", "Popup option"),
+                        br(),
+                        br(),
+                        br(),
+                        br(),
+                        br(),
+                        br(),
+                        br()
+                ),
+        mainPanel(
+                leafletOutput("mymap"),
+                plotlyOutput("myplot", width = "99%", height = 200)
+                )
+        )
+)
+
+# server side        
+server <- function(input, output, session) {
+        output$mymap <- renderLeaflet({
+        set.seed(2018-01-06)
+        dfFiltered <- df
+                        
+        if(input$month =='all')
+                {
+                        if(input$crime.type == 'all') {} 
+                        else {dfFiltered <- filter(df, Crime.type == input$crime.type)}
+                }
+        else  
+                        
+                {
+                        if(input$crime.type == 'all') {dfFiltered <- filter(df, Month == input$month)}
+                        else {dfFiltered <- filter(df, Month == input$month & Crime.type == input$crime.type)}
+                }
+          
+        myMap <- leaflet() %>% addTiles()
+          
+        
+          if (input$legend == FALSE) 
+                {
+                        if (input$cluster == FALSE) {myMap <- myMap %>% addMarkers(dfFiltered$Longitude, dfFiltered$Latitude)}
+                        else {myMap <- myMap %>% addMarkers(dfFiltered$Longitude, dfFiltered$Latitude, 
+                                                 clusterOptions = markerClusterOptions())}
+                }
+          else 
+                {
+                        if (input$cluster == FALSE) {myMap <- myMap %>% addMarkers(dfFiltered$Longitude, dfFiltered$Latitude, 
+                                                                        popup = dfFiltered$Last.outcome.category,
+                                                                        label = dfFiltered$Crime.ID)}
+                        else {myMap <- myMap %>% addMarkers(dfFiltered$Longitude, dfFiltered$Latitude, 
+                                                 popup = dfFiltered$Last.outcome.category,
+                                                 label = dfFiltered$Crime.ID,
+                                                 clusterOptions = markerClusterOptions())}
+          }  
+        })
+                
+        output$myplot <- renderPlotly({
+                
+                m <- list(
+                        l = 50,
+                        r = 50,
+                        b = 50,
+                        t = 50,
+                        pad = 4
+                        )   
+                
+                if(input$crime.type == 'all') {} 
+                else  {dfSummarised <- filter(dfSummarised, crimeType == input$crime.type)}
+          
+                p <- plot_ly(source = "source") %>% 
+                        add_lines(data = dfSummarised, x = ~month, y = ~crimeTypeCount, 
+                        color = ~crimeType, 
+                        mode = "lines", line = list(width = 2))
+
+                p <- p %>%
+                        layout(title = paste("Trend for '", input$crime.type, "' during 2016"),
+                        autosize = F, 
+                        margin = m,
+                        width = 550, height = 250,
+                        yaxis = list(title = "crime type count")
+                        )
+                p
+          
+        })
+}
+        
+shinyApp(ui, server, options = list(height = 700))        
+
+```
+
+#### Synopsis
+The goal of the project is:
+
+* create a web page using **R Markdown** that features a map created with **Leaflet**.
+* host your webpage on either GitHub Pages, RPubs, or NeoCities.
+
+#### Project's Dataset
+This project use the [Data sourse:](https://data.police.uk/data/) These CSV files provide street-level crime, outcome, and stop and search information, broken down by police force an 2016 by City of London police.
+
+***
+######Mirzarashid Abbasov, almaty, 2018
