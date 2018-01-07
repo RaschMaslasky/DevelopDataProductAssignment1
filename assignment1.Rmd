@@ -2,7 +2,7 @@
 title: "London's Crime Monitoring"
 author: "mirzarashid abbasov | developing data products course | coursera | 06.JAN.2018"
 output: html_document
-runtime: shiny
+
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
